@@ -61,9 +61,6 @@ export async function PATCH(req) {
   if (!user) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401, headers: corsHeaders });
   }
-  if (user.role !== "ADMIN") {
-    return NextResponse.json({ message: "Forbidden" }, { status: 403, headers: corsHeaders });
-  }
 
   try {
     const data = await req.json();
@@ -72,6 +69,18 @@ export async function PATCH(req) {
     const validStatuses = ["INIT", "CLOSE-NO-AVAILABLE-BOOK", "ACCEPTED", "CANCEL-ADMIN", "CANCEL-USER"];
     if (!validStatuses.includes(status)) {
       return NextResponse.json({ message: "Invalid status" }, { status: 400, headers: corsHeaders });
+    }
+
+    if (user.role !== "ADMIN") {
+      if (status !== "CANCEL-USER") {
+        return NextResponse.json({ message: "Forbidden" }, { status: 403, headers: corsHeaders });
+      }
+      const client = await getClientPromise();
+      const db = client.db("exam-library");
+      const borrow = await db.collection("borrow").findOne({ _id: new ObjectId(borrowId) });
+      if (borrow.userId !== user.id) {
+        return NextResponse.json({ message: "Forbidden" }, { status: 403, headers: corsHeaders });
+      }
     }
 
     const client = await getClientPromise();
